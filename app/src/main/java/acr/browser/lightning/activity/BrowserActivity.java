@@ -82,6 +82,7 @@ import android.widget.TextView;
 import android.widget.TextView.OnEditorActionListener;
 import android.widget.VideoView;
 
+import com.anthonycr.grant.PermissionsManager;
 import com.squareup.otto.Bus;
 import com.squareup.otto.Subscribe;
 
@@ -110,13 +111,10 @@ import acr.browser.lightning.dialog.LightningDialogBuilder;
 import acr.browser.lightning.fragment.BookmarksFragment;
 import acr.browser.lightning.fragment.TabsFragment;
 import acr.browser.lightning.object.SearchAdapter;
+import acr.browser.lightning.react.Observable;
 import acr.browser.lightning.react.Schedulers;
 import acr.browser.lightning.react.Subscription;
 import acr.browser.lightning.receiver.NetworkReceiver;
-
-import com.anthonycr.grant.PermissionsManager;
-
-import acr.browser.lightning.react.Observable;
 import acr.browser.lightning.utils.ProxyUtils;
 import acr.browser.lightning.utils.ThemeUtils;
 import acr.browser.lightning.utils.UrlUtils;
@@ -124,10 +122,11 @@ import acr.browser.lightning.utils.Utils;
 import acr.browser.lightning.utils.WebUtils;
 import acr.browser.lightning.view.AnimatedProgressBar;
 import acr.browser.lightning.view.LightningView;
+import acr.browser.lightning.view.WebSwipeRefreshLayout;
 import butterknife.Bind;
 import butterknife.ButterKnife;
 
-public abstract class BrowserActivity extends ThemableBrowserActivity implements BrowserView, UIController, OnClickListener, OnLongClickListener {
+public abstract class BrowserActivity extends ThemableBrowserActivity implements BrowserView, UIController, OnClickListener, OnLongClickListener, WebSwipeRefreshLayout.CanChildScrollUpCallback, WebSwipeRefreshLayout.OnRefreshListener {
 
     // Static Layout
     @Bind(R.id.drawer_layout)
@@ -153,6 +152,9 @@ public abstract class BrowserActivity extends ThemableBrowserActivity implements
 
     @Bind(R.id.search_bar)
     RelativeLayout mSearchBar;
+
+    @Bind(R.id.refresher)
+    WebSwipeRefreshLayout swipeLayout;
 
 
     // Toolbar Views
@@ -256,6 +258,10 @@ public abstract class BrowserActivity extends ThemableBrowserActivity implements
         Toolbar toolbar = (Toolbar) findViewById(R.id.toolbar);
         setSupportActionBar(toolbar);
         ActionBar actionBar = getSupportActionBar();
+
+        swipeLayout.setColorSchemeResources(R.color.primary_color);
+        swipeLayout.setOnRefreshListener(this);
+        swipeLayout.setCanChildScrollUpCallback(this);
 
         //TODO make sure dark theme flag gets set correctly
         mDarkTheme = mPreferences.getUseTheme() != 0 || isIncognito();
@@ -1801,6 +1807,10 @@ public abstract class BrowserActivity extends ThemableBrowserActivity implements
             mIcon = isLoading ? mDeleteIcon : mRefreshIcon;
             mSearch.setCompoundDrawables(null, null, mIcon, null);
         }
+
+        if (!isLoading) {
+            swipeLayout.setRefreshing(false);
+        }
     }
 
     /**
@@ -2150,4 +2160,15 @@ public abstract class BrowserActivity extends ThemableBrowserActivity implements
             }
         }
     };
+
+    @Override
+    public boolean canSwipeRefreshChildScrollUp() {
+        return mTabsManager.getCurrentTab().getWebView().getScrollY() > 0;
+    }
+
+    @Override
+    public void onRefresh() {
+        swipeLayout.setRefreshing(true);
+        refreshOrStop();
+    }
 }
